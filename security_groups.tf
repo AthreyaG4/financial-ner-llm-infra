@@ -1,14 +1,12 @@
 # Baseline SG: allow all traffic within the VPC, and all outbound (needed
 # for private-subnet resources to reach the internet via the NAT Gateway -
-# ECR, Hugging Face Hub, etc.).
+# ECR, Hugging Face Hub, Supabase, etc.).
 #
 # Deliberately minimal - this is NOT the EKS cluster/node security groups.
-# Those depend on the actual EKS cluster and node group, which don't exist
-# yet (you're setting EKS up manually first). When you create the cluster,
-# EKS will generate its own cluster security group automatically, and
-# you'll want a node-to-cluster communication SG at that point too - add
-# those alongside the cluster itself rather than guessing at their rules
-# here ahead of time.
+# aws_eks_cluster (eks.tf) doesn't specify security_group_ids, so EKS
+# generates its own default cluster security group automatically and the
+# node group (node_group.tf) reuses it for node<->control-plane
+# communication - no need to hand-write those rules here.
 resource "aws_security_group" "vpc_baseline" {
   name        = "${var.project_name}-vpc-baseline"
   description = "Baseline SG: allow all traffic within the VPC, all outbound"

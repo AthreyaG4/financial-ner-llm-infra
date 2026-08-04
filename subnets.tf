@@ -11,8 +11,8 @@ resource "aws_subnet" "public" {
     Name = "${var.project_name}-public-${var.availability_zones[count.index]}"
     # Lets EKS/the AWS Load Balancer Controller auto-discover which subnets
     # to use for internet-facing load balancers.
-    "kubernetes.io/role/elb"                     = "1"
-    "kubernetes.io/cluster/${var.cluster_name}"  = "shared"
+    "kubernetes.io/role/elb"                    = "1"
+    "kubernetes.io/cluster/${var.cluster_name}" = "shared"
   }
 }
 
