@@ -1,0 +1,16 @@
+# Terraform local state and cache - never commit real state, it can contain
+# sensitive values in plaintext (and this project uses local state for now).
+# .terraform.lock.hcl is NOT listed here - unlike the rest of this, that
+# file should be committed (it's the equivalent of uv.lock, pinning exact
+# provider versions/checksums for reproducible `terraform init` runs).
+*.tfstate
+*.tfstate.*
+.terraform/
+
+# Variable files that might carry secrets/environment-specific overrides
+*.tfvars
+*.tfvars.json
+
+# Terraform crash logs
+crash.log
+crash.*.log
