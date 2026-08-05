@@ -76,6 +76,54 @@ variable "lb_controller_service_account_name" {
   default     = "aws-load-balancer-controller"
 }
 
+variable "cluster_autoscaler_namespace" {
+  description = "Namespace Cluster Autoscaler will be installed into"
+  type        = string
+  default     = "kube-system"
+}
+
+variable "cluster_autoscaler_service_account_name" {
+  description = "ServiceAccount name Cluster Autoscaler's pods run under - must match the Helm chart's serviceAccount.name value"
+  type        = string
+  default     = "cluster-autoscaler"
+}
+
+variable "gpu_node_instance_type" {
+  description = "EC2 instance type for the GPU node group (vLLM)"
+  type        = string
+  default     = "g4dn.xlarge"
+}
+
+variable "gpu_node_capacity_type" {
+  description = "ON_DEMAND or SPOT - see node_capacity_type's comment; same reasoning applies here."
+  type        = string
+  default     = "ON_DEMAND"
+}
+
+variable "gpu_node_ami_type" {
+  description = "EKS-optimized AMI type - must be a GPU variant (has NVIDIA drivers preinstalled) or the device plugin can't see the GPU. Verify this is still the current recommended GPU ami_type for the cluster's kubernetes_version before applying - AWS has been migrating GPU AMIs from AL2 to AL2023 variants."
+  type        = string
+  default     = "AL2_x86_64_GPU"
+}
+
+variable "gpu_node_desired_size" {
+  description = "Starting node count - Cluster Autoscaler adjusts this at runtime within min/max, this is only the initial value Terraform sets."
+  type        = number
+  default     = 0
+}
+
+variable "gpu_node_min_size" {
+  description = "Minimum GPU nodes - 0 so nothing runs (and nothing costs money) when vLLM has no pods scheduled."
+  type        = number
+  default     = 0
+}
+
+variable "gpu_node_max_size" {
+  description = "Maximum GPU nodes"
+  type        = number
+  default     = 2
+}
+
 variable "vpc_cidr" {
   description = "CIDR block for the VPC"
   type        = string

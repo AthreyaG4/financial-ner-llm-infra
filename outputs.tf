@@ -45,6 +45,11 @@ output "lb_controller_role_arn" {
   value       = aws_iam_role.lb_controller.arn
 }
 
+output "cluster_autoscaler_role_arn" {
+  description = "Paste into Cluster Autoscaler's ServiceAccount annotation (eks.amazonaws.com/role-arn) in Config Repo"
+  value       = aws_iam_role.cluster_autoscaler.arn
+}
+
 output "account_id" {
   description = "Config Repo's backend/frontend deployment.yaml hardcode this in their ECR image URLs - ECR itself isn't managed by this Terraform, so this only helps you verify/copy the right value by hand, it doesn't wire the dependency automatically."
   value       = data.aws_caller_identity.current.account_id

@@ -109,3 +109,52 @@ resource "aws_iam_role_policy_attachment" "lb_controller_permissions" {
   role       = aws_iam_role.lb_controller.name
   policy_arn = aws_iam_policy.lb_controller_permissions.arn
 }
+
+# --- Cluster Autoscaler: resize the GPU node group's ASG in response to
+# pending/idle pods (see node_group.tf's "gpu" node group) ---
+
+data "aws_iam_policy_document" "cluster_autoscaler_assume_role" {
+  statement {
+    effect  = "Allow"
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+
+    principals {
+      type        = "Federated"
+      identifiers = [aws_iam_openid_connect_provider.eks.arn]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "${local.oidc_provider_url}:sub"
+      values   = ["system:serviceaccount:${var.cluster_autoscaler_namespace}:${var.cluster_autoscaler_service_account_name}"]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "${local.oidc_provider_url}:aud"
+      values   = ["sts.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_iam_role" "cluster_autoscaler" {
+  name               = "${var.project_name}-cluster-autoscaler-role"
+  assume_role_policy = data.aws_iam_policy_document.cluster_autoscaler_assume_role.json
+}
+
+# Read-only discovery actions are unscoped (autoscaling:Describe* doesn't
+# support resource-level permissions), but the actions that actually change
+# capacity are scoped to ASGs tagged k8s.io/cluster-autoscaler/<cluster_name>
+# = owned - see node_group.tf's "gpu" node group tags - so this role can't
+# touch some other ASG in the account even if it wanted to.
+resource "aws_iam_policy" "cluster_autoscaler_permissions" {
+  name = "${var.project_name}-cluster-autoscaler-policy"
+  policy = templatefile("${path.module}/iam-policies/cluster-autoscaler-policy.json", {
+    cluster_name = var.cluster_name
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "cluster_autoscaler_permissions" {
+  role       = aws_iam_role.cluster_autoscaler.name
+  policy_arn = aws_iam_policy.cluster_autoscaler_permissions.arn
+}

@@ -64,3 +64,59 @@ resource "aws_eks_node_group" "main" {
     aws_iam_role_policy_attachment.eks_node_ecr_readonly,
   ]
 }
+
+# GPU node group for vLLM. Shares the same node role as the "main" group
+# above (no GPU-specific IAM permissions needed - the device plugin and
+# vLLM run under this role like any other pod). min_size 0 so this costs
+# nothing when idle - reaching max_size requires Cluster Autoscaler (see
+# irsa.tf's cluster_autoscaler role + Config Repo's ArgoCD Application) to
+# actually move desired_size within [min,max]; Terraform only sets the
+# starting value and the bounds, it doesn't scale this at runtime.
+resource "aws_eks_node_group" "gpu" {
+  cluster_name    = aws_eks_cluster.main.name
+  node_group_name = "${var.project_name}-gpu-node-group"
+  node_role_arn   = aws_iam_role.eks_node.arn
+  subnet_ids      = aws_subnet.private[*].id
+
+  capacity_type  = var.gpu_node_capacity_type
+  instance_types = [var.gpu_node_instance_type]
+  ami_type       = var.gpu_node_ami_type
+
+  scaling_config {
+    desired_size = var.gpu_node_desired_size
+    min_size     = var.gpu_node_min_size
+    max_size     = var.gpu_node_max_size
+  }
+
+  # Keeps frontend/backend from ever landing on the (expensive) GPU
+  # instance - only pods with a matching toleration schedule here. Config
+  # Repo's vllm chart and nvidia-device-plugin Application both carry the
+  # matching `workload=gpu:NoSchedule` toleration.
+  taint {
+    key    = "workload"
+    value  = "gpu"
+    effect = "NO_SCHEDULE"
+  }
+
+  # The taint alone only repels non-matching pods, it doesn't attract
+  # matching ones away from the CPU node group - this label is what lets
+  # vLLM's nodeSelector target this node group specifically.
+  labels = {
+    workload = "gpu"
+  }
+
+  # Cluster Autoscaler auto-discovery scopes its mutating actions to ASGs
+  # carrying this exact tag pair (see irsa.tf's cluster_autoscaler_permissions
+  # policy condition) - aws_eks_node_group propagates `tags` to the
+  # underlying ASG, but not to the EC2 instances themselves.
+  tags = {
+    "k8s.io/cluster-autoscaler/enabled"             = "true"
+    "k8s.io/cluster-autoscaler/${var.cluster_name}" = "owned"
+  }
+
+  depends_on = [
+    aws_iam_role_policy_attachment.eks_node_worker_policy,
+    aws_iam_role_policy_attachment.eks_node_cni_policy,
+    aws_iam_role_policy_attachment.eks_node_ecr_readonly,
+  ]
+}
